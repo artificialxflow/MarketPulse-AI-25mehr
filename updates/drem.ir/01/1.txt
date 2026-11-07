@@ -1,0 +1,229 @@
+# پرامپت UAT کامل برای VS Code Copilot — پروژه drem.ir
+
+این متن را **کپی کنید** و به Copilot بدهید (Chat یا Agent با **Simple Browser / Playwright / Browser automation**). هدف: پوشش end-to-end، اسکرین‌شات، گزارش pass/fail، و پیشنهاد بهبود.
+
+---
+
+## ۰. دستور کلی به Copilot
+
+```
+You are QA for the Next.js app "drem" (RTL Persian UI).
+
+Base URL: [LOCAL: http://localhost:3000] OR [PROD: https://drem.ir]
+
+Rules:
+1. Test in order: Phase 0 → 1 → 2 → 3 (seed data before dependent flows).
+2. For each step: navigate URL, perform actions, capture screenshot to tests/results/uat-v4/{step-id}-{slug}.png
+3. Log: step id | URL | pass/fail | HTTP errors | short note
+4. Final report: Markdown table + "Blockers" + "Improvement ideas" (product + UX + security)
+5. Do not paste secrets (API keys) in the report.
+6. Use cookie auth after login; credentials below.
+```
+
+---
+
+## ۱. پیش‌نیاز محیط
+
+| مورد | مقدار / اقدام |
+|------|----------------|
+| سرور | `npm run dev` یا Runflare بعد از deploy موفق |
+| DB | `npx prisma migrate deploy` (شامل `20260421190000_v4_ai_rag_exams`) |
+| OTP dev | `ENABLE_DEV_BYPASS=true`, `MASTER_OTP_CODE=0000` |
+| کاربران تست (پیشنهاد) | سه شماره ۱۱ رقمی جدا در `/admin/users` با نقش‌های **admin / student / parent** |
+| Bypass (اختیاری) | `BYPASS_PHONE` فقط برای یک نقش — برای UAT کامل **سه کاربر جدا** بهتر است |
+| AI (اختیاری) | کلید GapGPT در env یا `/admin/settings/ai` — بدون کلید analyze متن mock برمی‌گرداند |
+| پوشه اسکرین‌شات | `tests/results/uat-v4/` (ایجاد در صورت نبود) |
+
+**API smoke (بدون UI):**
+
+- `GET /api/health/ready` → 200
+- `GET /api/ai/health` → `success`, `pgvector`, `ragChunkCount`
+- `GET /api/webrtc/health` → 200
+
+---
+
+## ۲. دادهٔ seed (فاز ۱ — فقط admin)
+
+| ID | مسیر | داده نمونه | انتظار |
+|----|------|------------|--------|
+| S1 | `/login` | admin phone + OTP 0000 | redirect → `/admin/dashboard` |
+| S2 | `/admin/users` | student: `09121111111`, parent: `09122222222` | کاربران در جدول |
+| S3 | `/admin/curriculum` | پایه «دهم» → درس «ریاضی» → فصل «فصل ۱» | بعد از refresh درخت همان nodes |
+| S4 | `/admin/packs` | پایه/درس از curriculum + عنوان بسته + (اختیاری PDF) | ردیف در جدول |
+| S5 | `/admin/schedule` | رویداد با عنوان «UAT رویداد» | در `/student/schedule` دیده شود |
+| S6 | `/parent/dashboard` | (بعداً با parent login) افزودن فرزند با **شماره student** | فرزند در لیست |
+
+**اسکرین‌شات:** `S1-login-admin.png` … `S5-schedule.png`
+
+---
+
+## ۳. فلو آزمون (قلب محصول)
+
+### ۳.۱ مدیر — تعریف و برگزاری
+
+| ID | URL | اقدام | انتظار |
+|----|-----|--------|--------|
+| E1 | `/admin/exams` | عنوان «UAT آزمون»، audience «دهم»، **start/end = الان تا +۲ ساعت** (شمسی) | فرم پر |
+| E2 | همان صفحه | آپلود PDF سوال (اختیاری) | پیش‌نمایش PDF |
+| E3 | همان صفحه | فیلد **answerKey** مثلاً `ABCD` (۴ سؤال، هر حرف = گزینه صحیح A/B/C/D) | ذخیره در body |
+| E4 | همان صفحه | checkbox دانش‌آموز تست را انتخاب + **ذخیره و زمان‌بندی** | POST موفق؛ enrollment |
+| E5 | تب «در حال برگزاری» | — | آزمون ongoing |
+| E6 | `/admin/monitoring` | — | آزمون فعال؛ بعد از شروع student: وضعیت running / progress |
+| E7 | تب «تحلیل/نتایج» یا `GET /api/admin/exams/results` | بعد از submit | نمره student |
+
+**نکته:** اگر **هیچ enrollment** نباشد، همه studentها آزمون را می‌بینند؛ با انتخاب checkbox فقط همان student باید ببیند.
+
+### ۳.۲ دانش‌آموز
+
+| ID | URL | اقدام | انتظار |
+|----|-----|--------|--------|
+| E8 | `/login` | student phone + OTP | `/student/dashboard` |
+| E9 | `/student/exams` | آزمون UAT در لیست | `canTake` true اگر ongoing |
+| E10 | همان | «شروع» → پاسخ A,B,C,D → **ارسال** | نمره ~۱۰۰٪ اگر کلید ABCD و پاسخ درست |
+| E11 | Network | `PATCH .../progress` هر ~۱۵s حین آزمون | 200 |
+| E12 | `/student/dashboard` | مشاور هوشمند — یک سؤال کوتاه | 200 یا پیام mock/503 |
+| E13 | `/student/progress` | تب‌ها | نمودار/داده (اگر topic_progress seed شده) |
+
+### ۳.۳ والد
+
+| ID | URL | اقدام | انتظار |
+|----|-----|--------|--------|
+| P1 | `/login` | parent phone + OTP | `/parent/dashboard` |
+| P2 | `/parent/dashboard` | افزودن فرزند (student phone) | stats/chart |
+| P3 | `/parent/dashboard` | **تحلیل هوشمند** | Modal/متن تحلیل (mock یا AI) |
+| P4 | فیلتر month/quarter/year | — | داده refresh |
+
+---
+
+## ۴. نقشه کامل URLها (چک لیست مرور)
+
+### عمومی
+- `/` — لندینگ، دکمه ورود
+- `/login` — OTP
+
+### Admin (فقط role=admin)
+| URL | هدف تست |
+|-----|---------|
+| `/admin/dashboard` | آمار، لینک‌ها |
+| `/admin/curriculum` | درخت دروس |
+| `/admin/users` | CRUD نقش |
+| `/admin/schedule` | رویداد |
+| `/admin/packs` | بسته + import اکسل |
+| `/admin/exams` | آزمون end-to-end |
+| `/admin/classes` | لیست کلاس |
+| `/admin/classes/new` | ایجاد کلاس |
+| `/admin/classes/[id]` | جزئیات |
+| `/admin/classes/[id]/recordings` | رکورد (اگر فایل دارید) |
+| `/admin/progress` | پیشرفت + **تحلیل هوشمند** |
+| `/admin/monitoring` | آزمون live |
+| `/admin/leaderboard` | لیدربورد |
+| `/admin/messages` | پیام سریع |
+| `/admin/attendance` | حضور |
+| `/admin/settings/ai` | GapGPT / Google / RAG |
+| `/admin/faq` | FAQ برای RAG |
+| `/admin/ai` | copilot ادمین |
+
+### Student
+| URL |
+|-----|
+| `/student/dashboard` |
+| `/student/exams` |
+| `/student/progress` |
+| `/student/schedule` |
+
+### Parent
+| URL |
+|-----|
+| `/parent/dashboard` |
+
+**تست دسترسی (امنیت سریع):**
+
+- student → `/admin/dashboard` → redirect به student dashboard  
+- student → `POST /api/ai/analyze` → **403**  
+- parent → `POST /api/ai/advise` → **403**
+
+---
+
+## ۵. AI / RAG (فاز اختیاری ولی مهم)
+
+| ID | مسیر | انتظار |
+|----|------|--------|
+| A1 | `/admin/settings/ai` | ذخیره + تست اتصال |
+| A2 | `/admin/faq` | یک FAQ + embed |
+| A3 | `/api/ai/health` | `ragChunkCount` ≥ 1 بعد FAQ |
+| A4 | `/admin/progress` → analyze | متن با اشاره به FAQ (اگر RAG فعال) |
+| A5 | `/admin/ai` | chat با context |
+
+---
+
+## ۶. فرمت گزارش نهایی (Copilot باید بسازد)
+
+```markdown
+# UAT Report — drem — [date] — [BASE_URL]
+
+## Summary
+- Passed: X / Total: Y
+- Blockers: ...
+
+## Results
+| Step | URL | Pass | Screenshot | Notes |
+
+## API anomalies
+| Endpoint | Status | Role |
+
+## Improvement ideas (for dev team)
+1. ...
+```
+
+---
+
+## ۷. محدودیت‌های شناخته‌شده (در گزارش «Expected gap» نگذار — «Known limitation»)
+
+| موضوع | وضعیت |
+|--------|--------|
+| تخلفات زنده / proctoring حین آزمون | فاز بعد — مانیتورینگ فقط progress/heartbeat |
+| انتساب **pack** به آزمون در UI | ممکن است فقط studentIds ذخیره شود |
+| دکمه‌های placeholder در [`tests/CHECKLIST.md`](tests/CHECKLIST.md) | بعضی دکمه‌های داشبورد بدون عملکرد |
+| admin می‌تواند `/student/*` را باز کند | by design در middleware |
+| `questionCount` بدون answerKey | UI حداقل ۵ سؤال mock — answerKey را حتماً در UAT بگذارید |
+
+---
+
+## ۸. اجرای خودکار (مکمل Copilot)
+
+```bash
+npm run dev
+npm run test:e2e
+```
+
+مراجع: [`tests/BROWSER-UAT-v4.md`](tests/BROWSER-UAT-v4.md), [`tests/CHECKLIST.md`](tests/CHECKLIST.md), [`docs/action-matrix.md`](docs/action-matrix.md)
+
+---
+
+## ۹. پیشنهادهای بهبود حرفه‌ای (Copilot در بخش Ideas تکرار/گسترش دهد)
+
+1. **اسکریپت seed یک‌بار:** `scripts/seed-uat.ts` — admin/student/parent + curriculum + exam ongoing  
+2. **سه `BYPASS_PHONE` در env تست** + Playwright با storage جدا (موجود در `tests/e2e/auth.setup.ts`)  
+3. **فیلد answerKey در UI آزمون** با راهنما (فرمت `ABCD`)  
+4. **صفحه «راهنمای UAT»** در repo لینک‌شده به همین فلو  
+5. **CI:** `npm run build` + `test:e2e` روی staging قبل از `runflare deploy`  
+6. **حذف/فعال‌سازی دکمه‌های placeholder** در admin dashboard  
+7. **والد:** اگر فرزند لینک نشده، CTA واضح قبل از analyze  
+8. **RAG:** نمایش citation منابع در analyze والد  
+9. **Runflare:** اطمینان از آپلود کامل سورس (نه archive ~1KB)  
+10. **امنیت:** rotate کلیدها؛ `ENABLE_DEV_BYPASS=false` در production  
+
+---
+
+## ۱۰. ترتیب پیشنهادی برای یک session Copilot (~۹۰ دقیقه)
+
+1. Phase 0: health APIs  
+2. Phase 1: S1–S6 seed  
+3. Phase 2: E1–E13 آزمون  
+4. Phase 3: P1–P4 والد  
+5. Phase 4: A1–A5 AI  
+6. Phase 5: crawl همه URLهای بخش ۴ (smoke: صفحه 200، بدون crash)  
+
+---
+
+اگر بخواهید این را **فایل رسمی در repo** (مثلاً `tests/COPILOT-UAT-FULL.md`) داشته باشید، **Agent mode** را روشن کنید تا همان را commit کنیم.

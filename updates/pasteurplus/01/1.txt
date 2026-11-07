@@ -1,0 +1,105 @@
+تو تستر UAT مرورگر برای پروژه pasteurmed10tir / پاستور پلاس هستی.
+
+BASE_URL = https://pasteur.plus
+(اگر لوکال: http://localhost:3000 — فقط یکی را انتخاب کن و در گزارش بنویس.)
+
+Deploy v23:
+- migration 058_v23_bundle29 باید روی DB اعمال شده باشد (npx prisma migrate deploy).
+- اگر تغییرات v23 هنوز deploy نشده، سناریوها را BLOCKED کن و در گزارش بنویس «نیاز به deploy».
+
+قوانین:
+1. برای هر مرحله زیر: full-page screenshot با نام فایل پیشنهادی.
+2. بعد از هر screenshot یک خط: PASS | FAIL | BLOCKED + دلیل کوتاه.
+3. login ادمین / بیمار / ویزیتور از credential صاحب پروژه — رمز را در گزارش چاپ نکن.
+4. اسکرین‌شات‌ها: updates/29/uat-screenshots/
+5. گزارش نهایی: updates/29/uat-v23-report.md (قالب پایین).
+
+سناریوهای BLOCKED از قبل (انتظار نادرست نگیر):
+- 11.2: فرم ۷ بخش × ۷ ردیف گزارش کار پاستور — UI ناقص؛ فقط 11.0 و 11.1 smoke.
+- 14.2: export مخصوص «نرخ بازگشت» — اگر دکمه نیست BLOCKED (فقط کارت KPI).
+- 7: بدون حساب ویزیتور → BLOCKED.
+- 4: بدون تکفل در حساب → BLOCKED.
+- 5: بدون مشاوره text/phone مناسب → BLOCKED یا فقط UI ادمین را چک کن.
+
+---
+
+سناریو ۱ — مشاوره (۴ نوع، بدون اورژانسی تکراری)
+- https://pasteur.plus/consultation?category=medical
+  اقدام: اسکرول کارت‌های نوع.
+  انتظار: ۴ کارت (متنی، صوتی، تصویری، یک اورژانسی)؛ نه دو «اورژانسی».
+  Screenshot: v23-uat-01-consultation-types.png
+- همان صفحه: قیمت تصویری ~۱٬۰۰۰٬۰۰۰ و اورژانسی ~۱٬۳۰۰٬۰۰۰ (یا مطابق ادمین).
+  Screenshot: v23-uat-01-prices.png
+- https://pasteur.plus/admin/consultation-prices (بعد از login ادمین)
+  انتظار: idها text, phone, video, emergency — بدون image فعال.
+  Screenshot: v23-uat-01-admin-prices.png
+
+سناریو ۲ — عضویت
+- https://pasteur.plus/dental/membership → عادی ۱٬۰۰۰٬۰۰۰ · VIP ۲٬۰۰۰٬۰۰۰ → v23-uat-02-membership.png
+- https://pasteur.plus/app/dental/membership → همان → v23-uat-02-membership-app.png
+
+سناریو ۳ — دندان بدون Quick Links
+- https://pasteur.plus/consultation → نباید بلوک «خدمات تخصصی — تماس کارشناس» → v23-uat-03-dental-no-quicklinks.png
+- https://pasteur.plus/consultation?category=dental → همان → v23-uat-03-dental-category.png
+
+سناریو ۴ — گزارش پرونده تکفل (پیش‌نیاز: تکفل)
+- https://pasteur.plus/account/health-record/report — انتخاب تکفل → v23-uat-04-dependent-select.png
+- سربرگ باکس بیمار = نام تکفل (نه سرپرست) → v23-uat-04-dependent-header.png
+
+سناریو ۵ — اتاق ادمین متنی/صوتی (پیش‌نیاز: case text/phone)
+- https://pasteur.plus/admin/consultations — ایجاد/ویرایش لینک اتاق، بدون خطای «فقط تصویری» → v23-uat-05-admin-room.png
+- https://pasteur.plus/account/consultations/{ID} — پیگیری بیمار → v23-uat-05-patient-track.png
+
+سناریو ۶ — وام
+- https://pasteur.plus/account — درخواست وام: سقف عادی ۳۰۳٬۰۰۰٬۰۰۰ · VIP ۶۰۶٬۰۰۰٬۰۰۰ → v23-uat-06-loan-regular.png
+- مبلغ ۸۰۰٬۰۰۰٬۰۰۰ در VIP: clamp یا خطا → v23-uat-06-loan-cap.png
+
+سناریو ۷ — بازاریابی (ویزیتور)
+- https://pasteur.plus/app/account — گزارش موفق + textarea توضیحات → v23-uat-07-marketing-success-notes.png
+- ویرایش گزارش: فیلدها پر شوند → v23-uat-07-marketing-edit.png
+
+سناریو ۸ — فالوآپ
+- https://pasteur.plus/admin/follow-up — تب جدید، امتیاز معرفی ۱–۵ → v23-uat-08-followup-nps.png
+- export — ستون referralLikelihood → v23-uat-08-followup-export.png
+
+سناریو ۹ — تماس
+- https://pasteur.plus/contact — ۳ گروه: دندان (04134449313, 04134449300, 04134414235)، پزشکی 04134449303، فروشگاه 04134438314 → v23-uat-09-contact.png
+- https://pasteur.plus/app/contact → v23-uat-09-contact-app.png
+
+سناریو ۱۰ — مدارک بیمارستان
+- https://pasteur.plus/account/health-record — بخش «مدارک بیمارستان» → v23-uat-10-hospital-docs.png
+- https://pasteur.plus/account/health-record/report → v23-uat-10-hospital-report.png
+
+سناریو ۱۱ — گزارش کار پاستور (محدود)
+- https://pasteur.plus/admin/pasteur-work-reports — فرم ساده، نه ۷×۷ → v23-uat-11-pasteur-page.png
+- ثبت عنوان تست → v23-uat-11-pasteur-save.png
+- 11.2 فرم کامل → BLOCKED
+
+سناریو ۱۲ — رقبا و تعرفه
+- https://pasteur.plus/admin/competitor-analysis — تب جدید/مراکز، قیمت رقیب → v23-uat-12-competitor-new.png / v23-uat-12-competitor-prices.png
+- https://pasteur.plus/admin/dental-tariffs — URL عکس (نه آپلود فایل) → v23-uat-12-tariff-image.png
+
+سناریو ۱۳ — معرف و ثبت‌نام
+- https://pasteur.plus/?ref=PLUS100 → v23-uat-13-ref-landing.png
+- https://pasteur.plus/account — منابع «قراردادهای سازمانی» و «بیمار کلینیک پاستور»، کد معرف PLUS100 → v23-uat-13-signup.png
+
+سناریو ۱۴ — داشبورد
+- https://pasteur.plus/admin — کارت «نرخ بازگشت بیمار (رزرو دندان)» → v23-uat-14-dashboard-return.png
+- export نرخ بازگشت اگر نیست → BLOCKED → v23-uat-14-export.png
+
+---
+
+در پایان فایل updates/29/uat-v23-report.md را با این ساختار پر کن:
+
+# گزارش UAT v23
+- تاریخ:
+- Base URL:
+- Deploy انجام شده؟ بله/خیر
+
+## خلاصه: passed / failed / blocked
+
+## موارد موفق (جدول: ID | URL | اسکرین‌شات | یادداشت)
+## موارد ناموفق (جدول: ID | انتظار | واقعیت | اسکرین‌شات | فایل احتمالی | شدت)
+## blocked (دلیل + اقدام برای انسان)
+
+پیام برای توسعه‌دهنده: «طبق uat-v23-report.md موارد failed با شدت high را فیکس کن.»

@@ -1,0 +1,190 @@
+# بسته ۳۳/۰۱ — چه تغییر کرد و چطور تست کنید (برای Copilot)
+
+**مهم:** این فیکس در **کد محلی** (`pasteurmed10tir`) اعمال شده. اگر فقط `https://pasteur.plus` را بدون deploy جدید تست کنید، ممکن است هنوز رفتار **قبل از فیکس** (اسکرین‌شات‌های `01`–`05`) را ببینید. برای regression درست یکی از این دو را استفاده کنید:
+
+- **`npm run dev`** روی همان branch که فیکس merge شده → `http://localhost:3000`
+- یا **pasteur.plus** بعد از deploy همان commit
+
+---
+
+## ۱. خلاصهٔ تغییرات (قبل → بعد)
+
+| موضوع | قبل (Baseline) | بعد (فیکس) |
+|--------|----------------|------------|
+| **ادمین — ثبت‌کننده** | input متن؛ برچسب «لیست پرسنل اورژانس» | **select** با برچسب **«نام ثبت‌کننده»** (در تخصص: **«نام پزشک»**) |
+| **منبع لیست ادمین** | لیست اصلاً به فرم نمی‌رسید | `GET /api/admin/operations/health-records/registrar-options` |
+| **محتوای لیست** | — | پرسنل اورژانس + پزشکان + دندان‌پزشکان (ترکیب؛ حدود ~۴۵ گزینه) |
+| **بیمار — ثبت‌کننده** | dropdown با همان لیست | **هیچ فیلد `doctorName` در فرم ثبت جدید نیست** |
+| **فرم عمومی / تخصصی** | «توصیه‌ها» + «مراقبت‌ها» | فقط **«توصیه‌ها»** در فرم ثبت جدید |
+| **سوابق قدیمی** | — | اگر در DB مقدار `care` باشد، در **نمایش سوابق** هنوز «مراقبت‌ها» دیده می‌شود (فقط از فرم جدید حذف شده) |
+
+### فایل‌های تغییر یافته
+
+- [`lib/health-record/sections.ts`](lib/health-record/sections.ts) — برچسب «نام ثبت‌کننده»؛ حذف فیلد `care` از فرم
+- [`components/health-record/HealthRecordFormFields.tsx`](components/health-record/HealthRecordFormFields.tsx) — label از `field.label`؛ dropdown فقط وقتی `registrarOptions` پاس داده شود
+- [`app/admin/(panel)/health-records/page.tsx`](app/admin/(panel)/health-records/page.tsx) — fetch لیست + `registrarOptions`
+- [`app/api/admin/operations/health-records/registrar-options/route.ts`](app/api/admin/operations/health-records/registrar-options/route.ts) — API جدید
+- [`components/health-record/HealthRecordPage.tsx`](components/health-record/HealthRecordPage.tsx) — حذف fetch بیمار؛ `filter` روی `doctorName`
+- [`updates/33/01/health-record-browser-uat.md`](updates/33/01/health-record-browser-uat.md) — وضعیت UAT به‌روز شده
+
+---
+
+## ۲. آدرس‌ها (وب)
+
+پایه: **`BASE_URL`** = `http://localhost:3000` یا `https://pasteur.plus`
+
+| نقش | مسیر | هدف تست |
+|-----|------|---------|
+| ورود ادمین | `{BASE_URL}/admin/login` | لاگین دستی شما |
+| پرونده ادمین | `{BASE_URL}/admin/health-records` | فرم ثبت برای بیمار |
+| ورود بیمار | `{BASE_URL}/account` یا مسیر login سایت | لاگین دستی بیمار |
+| پرونده بیمار (وب) | `{BASE_URL}/account/health-record` | فرم ثبت خود بیمار |
+| پرونده بیمار — دندان | `{BASE_URL}/account/health-record?section=dental` | همان، بخش دندان |
+| پرونده بیمار (اپ) | `{BASE_URL}/app/health-record` | اگر UI اپ را جدا تست می‌کنید |
+| گزارش پرونده | `{BASE_URL}/account/health-record/report` | اختیاری؛ فقط مشاهده |
+
+در ادمین، در کارت **«ثبت مورد جدید»** از dropdown **«بخش ثبت»** بخش را عوض کنید (نیازی به انتخاب بیمار برای **دیدن فرم** نیست؛ برای **ذخیره** بیمار لازم است).
+
+---
+
+## ۳. چک‌لیست Regression (فاز B)
+
+برای هر مورد: **PASS / FAIL** + screenshot (بدون نام/موبایل بیمار در تصویر).
+
+### A — پنل ادمین (`/admin/health-records`)
+
+**A1 — بخش «عمومی»**
+
+1. بخش ثبت = **عمومی**
+2. **PASS** اگر:
+   - برچسب **«نام ثبت‌کننده»** (نه «لیست پرسنل اورژانس»)
+   - کنترل **`<select>`** (نه input متن)
+   - گزینهٔ اول: «— انتخاب از لیست پرسنل و پزشکان —»
+   - با باز کردن select، **چندین گزینه** (تعداد را بنویسید؛ **نام اشخاص را در گزارش چاپ نکنید**)
+3. پایین فرم: **«توصیه‌ها»** هست؛ **«مراقبت‌ها»** در فرم ثبت جدید **نیست**
+4. Screenshot پیشنهادی: `11-after-admin-general.png`
+
+**A2 — بخش «دندان»**
+
+- همان A1 برای ثبت‌کننده
+- Screenshot: `12-after-admin-dental.png`
+
+**A3 — بخش «حیاتی / قند / نوار» (vitals)** *(در Baseline `01` فقط text بود)*
+
+- برچسب **«نام ثبت‌کننده»** + **select** (نه textbox)
+- Screenshot اختیاری: `11b-after-admin-vitals.png`
+
+**A4 — یک بخش تخصصی (مثلاً ارتوپدی)**
+
+- برچسب **«نام پزشک»** + **select** (همان لیست)
+- بدون «مراقبت‌ها» در فرم جدید
+
+**A5 — API (اختیاری، DevTools Network)**
+
+- بعد از باز شدن صفحه ادمین پرونده: درخواست موفق به  
+  `/api/admin/operations/health-records/registrar-options`  
+  با `{ items: [...] }`
+
+---
+
+### B — حساب بیمار
+
+**قبل از تست:** از ادمین **خروج** یا **Incognito/تب جدید**.
+
+**B1 — عمومی** — `{BASE_URL}/account/health-record`
+
+- **PASS** اگر در «ثبت جدید» **هیچ** مورد زیر نباشد:
+  - «نام ثبت‌کننده»
+  - «لیست پرسنل اورژانس»
+  - «نام پزشک»
+  - select با placeholder «انتخاب از لیست پرسنل و پزشکان»
+- **«مراقبت‌ها»** در فرم ثبت جدید **نیست**
+- Screenshot: `13-after-patient-general.png`
+
+**B2 — دندان** — `{BASE_URL}/account/health-record?section=dental`
+
+- همان B1
+- Screenshot: `14-after-patient-dental.png`
+
+**B3 — نسخه (prescription)** — `?section=prescription`
+
+- فیلد «نام پزشک» در فرم بیمار **نباید** باشد (همان filter روی `doctorName`)
+
+---
+
+### C — سوابق قدیمی (فقط مشاهده)
+
+- اگر بیماری **سابقهٔ قدیمی** با `care` یا `doctorName` دارد:
+  - در لیست **«سوابق این بخش»** (نه فرم ثبت جدید):
+    - خط **«پزشک: …»** برای `doctorName`
+    - در جزئیات، در صورت وجود دادهٔ قدیمی، **«مراقبت‌ها»** ممکن است دیده شود
+- **ذخیره/ویرایش نکنید** مگر برای تست جداگانه
+- Screenshot: `15-after-history-compatibility.png`
+
+---
+
+## ۴. مقایسه با Baseline (برای گزارش Copilot)
+
+| تست | Baseline (01–05) | بعد از فیکس |
+|-----|------------------|-------------|
+| ادمین عمومی | FAIL — text + برچسب اشتباه | باید PASS |
+| ادمین دندان | FAIL | باید PASS |
+| بیمار عمومی | FAIL — dropdown | باید PASS — بدون فیلد |
+| بیمار دندان | FAIL | باید PASS |
+| مراقبت‌ها در فرم جدید | FAIL | باید PASS |
+
+---
+
+## ۵. متن آماده برای Copilot در VS Code (کپی کامل)
+
+```text
+Regression بسته ۳۳/۰۱ — پرونده سلامت Pasteur Plus
+
+پروژه کد: C:\Users\Administrator\Documents\Projects\pasteurmed10tir
+BASE_URL: http://localhost:3000
+(اگر لوکال نیست: https://pasteur.plus — فقط اگر deploy فیکس شده باشد)
+
+خروجی گزارش و screenshot:
+C:\Users\Administrator\Documents\Projects\pasteurmed10tir\updates\33\01
+
+قوانین:
+- فقط مشاهده؛ پرونده ذخیره/ویرایش/حذف نکن مگر من صریحاً بگویم.
+- ورود ادمین و بیمار را من دستی انجام می‌دهم؛ رمز را حدس نزن و submit لاگین بدون تأیید من نزن.
+- در گزارش نام اشخاص از dropdown را چاپ نکن؛ فقط تعداد گزینه‌ها.
+- screenshot بدون موبایل/نام بیمار/اطلاعات حساس.
+
+زمینه فیکس (انتظار PASS):
+- ادمین /admin/health-records: فیلد doctorName = select با label «نام ثبت‌کننده» (تخصص: «نام پزشک»)؛ API registrar-options.
+- بیمار /account/health-record و ?section=dental و ?section=prescription: هیچ فیلد doctorName/ثبت‌کننده در فرم ثبت جدید.
+- فرم عمومی ثبت جدید: «توصیه‌ها» بله؛ «مراقبت‌ها» خیر.
+
+مراحل:
+1) من ادمین را login می‌کنم → برو BASE_URL/admin/health-records
+2) بخش ثبت: عمومی → بررسی label، نوع کنترل (select vs input)، نبود «مراقبت‌ها» → screenshot 11-after-admin-general.png
+3) بخش ثبت: دندان → همان → 12-after-admin-dental.png
+4) بخش ثبت: حیاتی/قند/نوار → «نام ثبت‌کننده» + select → screenshot اختیاری
+5) من logout / incognito → login بیمار
+6) BASE_URL/account/health-record → تأیید نبود dropdown/ثبت‌کننده؛ نبود مراقبت‌ها → 13-after-patient-general.png
+7) BASE_URL/account/health-record?section=dental → 14-after-patient-dental.png
+8) اگر سوابق قدیمی visible است فقط read-only → 15-after-history-compatibility.png
+
+خروجی: جدول markdown | Test | URL | Expected | Actual | PASS/FAIL | Screenshot |
+و یک پارagraph: آیا BASE_URL نسخه قدیمی production بود؟ (اگر pasteur.plus هنوز FAIL شبیه baseline، بنویس «منتظر deploy»)
+```
+
+---
+
+## ۶. اگر هنوز FAIL می‌بینید
+
+1. **Branch/commit:** آیا همان کدی که فیکس دارد اجرا می‌شود؟
+2. **Production:** pasteur.plus بدون deploy → رفتار قدیمی طبیعی است.
+3. **لیست خالی در ادمین:** اگر API خطا دهد یا `items` خالی باشد، dropdown دوباره به **input متن** برمی‌گردد (`registrarOptions.length === 0`). Network tab را چک کنید.
+4. **Cache:** hard refresh یا incognito.
+
+---
+
+## ۷. Agent mode
+
+اگر بخواهید Copilot/Cursor **خودش** در مرورگر تست کند یا deploy/commit انجام شود، **Agent mode** را فعال کنید. در **Ask mode** فقط راهنما و تأیید وضعیت کد ممکن است (فیکس در repo شما از قبل اعمال شده).
+
+اگر خواستید، می‌توانم یک **جدول نتایج خالی** برای paste کردن خروجی Copilot در `health-record-browser-uat.md` (فقط متن، بدون ویرایش فایل در Ask mode) هم بفرستم.

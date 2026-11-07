@@ -1,0 +1,53 @@
+BASE: https://pasteur.plus
+اسکرین‌ها: updates/30/uat-v24-screenshots/
+گزارش: updates/30/uat-v24-report.md
+مرجع: todo-v24.md (فاز ۹ + پرامپت انتهای فایل)
+
+#	صفحه / مسیر	چه چیزی را چک کنید	نام اسکرین
+V24-1
+/consultation?category=medical&type=phone&doctor={ID}
+کارت ویزیت صوتی، صفحه تأیید پرداخت، (در صورت امکان) مبلغ درگاه — همه یک عدد
+v24-01a-card.png · v24-01b-confirm.png · v24-01c-gateway.png
+V24-2
+/admin/consultations + /app/account/consultations/{ID} برای type=phone
+ادمین: «باز کردن اتاق»، ورود، کپی، SMS، پایان — بیمار: «ورود به اتاق مشاوره» / ورود سریع از پنل
+v24-02-admin.png · v24-02-patient.png
+V24-3
+همان برای type=text
+مثل V24-2
+v24-03-admin.png · v24-03-patient.png
+V24-4
+/admin/consultations
+کنار هم ردیف video و phone — عملیات مشابه
+v24-04-admin-parity.png
+V24-5
+فرم مشاوره با پزشک + روز/ساعت
+بعد از یک رزرو، همان ساعت غیرفعال یا «رزرو شده»
+v24-05-doctor-slot.png
+V24-6
+/app/account/health-record?section=other
+۴ بلوک آپلود عکس، بدون textarea
+v24-06-hospital-docs.png
+V24-7
+/admin/visitors + /app/account
+معرف: نقش معرف، QR — پنل بدون تب بازاریابی، تب «کد معرف من» — ویزیتور: تب بازاریابی هست
+v24-07-referrer.png · v24-07-visitor.png
+V24-8
+?category=dental · /dental/membership · /contact
+smoke regression v23
+v24-08-*.png
+صفحات به‌روز / جدید در کد
+مشاوره: ConsultationForm (اسلات اشغال)، ConsultationTrack (ورود صوتی/متنی)، ConsultationPayment (همان منطق قیمت)
+ادمین: /admin/consultations (اکشن‌های live برای text/phone)
+API: /api/content/medical-doctors/[id]/occupied-slots
+پرونده: HealthRecordPage بخش مدارک بیمارستان
+ویزیتور/معرف: /admin/visitors + پنل /app/account (تب‌های بازاریابی / کد معرف)
+DB: migration 060 — Visitor.role + index مشاوره
+پرامپت کوپایلت
+بلوک «دستورالعمل UAT برای کوپایلت» را از انتهای todo-v24.md کپی کنید و بعد از deploy و migrate deploy در چت کوپایلت paste کنید.
+
+اگر خواستید فاز ۶ (تحلیل رقبا، آپلود تعرفه، export داشبورد) هم پیاده شود، بگویید تا در اسپرینت بعدی انجام شود.
+
+وضعیت: دستور اول tsc با خطای نوع doctorId در consultation-service.ts با exit code 2 تمام شد؛ همان مورد اصلاح شد (String(body.doctorId) و …).
+
+الان: npx tsc --noEmit بدون خطا است. مرحله بعد شما: deploy + migrate deploy (060) و سپس UAT طبق todo-v24.md.

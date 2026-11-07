@@ -1,0 +1,163 @@
+﻿راهنمای تست آنلاین (از آدرس اصلی)
+پایه: https://amlakkiaei.ir
+ورود: https://amlakkiaei.ir/login
+قانون: همهٔ دادهٔ تست با پیشوند v12-test تا بعداً راحت پیدا و حذف شود.
+
+حساب‌ها (طبق backend-dev/UAT-CHECKLIST.md)
+سناریو	موبایل	OTP (بعد از «ارسال کد»)	نقش / دفتر
+تست اصلی v12 (CRUD زمین)
+09126723365
+00000
+سوپرادمین — کیایی فرشته
+tenant — دفتر دیگر
+09126667788
+00000
+مدیر — نوین سعادت‌آباد
+کاربر عادی (هدر بدون سوییچ نقش)
+09123334455
+00000
+سارا — کیایی
+قبل از تعویض حساب: خروج → ورود با شمارهٔ بعدی.
+
+دادهٔ فیک ثابت (همان را در فرم‌ها بزنید)
+زمین (ثبت جدید)
+
+فیلد	مقدار
+عنوان
+v12-test زمین مشارکت تست
+مالک
+v12-test مالک فیک
+تلفن
+09120000012
+منطقه
+v12-test منطقه
+آدرس
+v12-test آدرس تست
+مساحت
+1200
+بر
+24
+عرض گذر
+16
+سند
+شش‌دانگ
+کاربری
+مسکونی
+جواز
+در حال اقدام
+درصد سهم مالک
+50
+معاوضه
+خیر
+یادداشت
+v12-test یادداشت UAT
+ویرایش زمین (بعد از ثبت): مساحت → 1250، وضعیت → «در حال مذاکره».
+
+معرفی سازنده: از مشتری seed مهندس کامران شمالی (req-5، نقش سازنده) — https://amlakkiaei.ir/customers/req-5
+
+فیلد	مقدار
+زمین
+v12-test زمین مشارکت تست
+تاریخ معرفی
+1404/08/06
+نتیجه تماس
+v12-test تماس OK
+وضعیت
+در حال مذاکره
+پیگیری
+v12-test پیگیری ۱
+ویرایش معرفی: پیگیری → v12-test پیگیری ۲.
+
+مسیرها و مراحل تست (هر مرحله: اسکرین‌شات + یادداشت Pass/Fail)
+۰ — پیش‌نیاز
+مرورگر ناشناس یا پس از خروج از حساب قبلی.
+اسکرین‌شات: 00-login.png
+۱ — منو و URL جدید
+ورود با 09126723365 / 00000.
+سایدبار گروه اصلی → مشارکت در ساخت.
+آدرس باید باشد: https://amlakkiaei.ir/construction
+اسکرین‌شات: 01-sidebar-construction.png, 02-url-construction.png
+۲ — ریدایرکت مسیر قدیم
+بروید: https://amlakkiaei.ir/collaboration/construction
+انتظار: ریدایرکت به /construction (یا همان صفحه با URL نهایی /construction).
+اسکرین‌شت: 03-redirect-old-path.png
+۳ — دادهٔ seed (قبل از فیک)
+تب زمین‌ها — باید زمین‌های seed (مثلاً زعفرانیه / نیاوران) را ببینید اگر DB seed شده است.
+اسکرین‌شات: 04-seed-lands.png
+۴ — ثبت زمین فیک
+تب ثبت زمین.
+فرم را با جدول بالا پر کنید → ثبت زمین.
+تب زمین‌ها → کارت v12-test زمین مشارکت تست.
+در DevTools → Network: POST /api/construction/lands → 201.
+اسکرین‌شات: 05-land-create-form.png, 06-land-list-after-create.png
+۵ — فرم خالی بعد از ثبت
+دوباره تب ثبت زمین.
+انتظار: فیلدها خالی (نه مقادیر قبلی).
+اسکرین‌شات: 07-empty-form-after-save.png
+۶ — ویرایش زمین
+روی کارت v12-test → ویرایش.
+مساحت 1250، وضعیت «در حال مذاکره» → ذخیره تغییرات.
+Network: PATCH /api/construction/lands/{id} → 200.
+اسکرین‌شات: 08-land-edit.png, 09-land-after-patch.png
+۷ — معرفی سازنده
+تب معرفی سازنده.
+سازنده: کامران شمالی؛ زمین: v12-test → ثبت معرفی.
+Network: POST /api/construction/intros → 201.
+اسکرین‌شات: 10-intro-create.png, 11-intro-list.png
+۸ — ویرایش معرفی
+در لیست معرفی‌ها → ویرایش → پیگیری v12-test پیگیری ۲ → ذخیره معرفی.
+Network: PATCH /api/construction/intros/{id} → 200.
+اسکرین‌شات: 12-intro-edit.png
+۹ — لینک از فرم فایل (اختیاری)
+https://amlakkiaei.ir/properties → افزودن فایل → نوع معامله مشارکت در ساخت.
+انتظار: پیام + لینک به /construction.
+اسکرین‌شات: 13-property-form-partnership-link.png
+۱۰ — tenant (جداسازی دفتر)
+با کیایی: فقط زمین‌های دفتر کیایی (شامل v12-test).
+خروج → ورود 09126667788 (نوین).
+https://amlakkiaei.ir/construction — v12-test نباید در لیست باشد.
+خروج → دوباره کیایی — v12-test باید باشد.
+اسکرین‌شات: 14-novin-no-v12.png, 15-kiaei-has-v12.png
+۱۱ — هدر و نقش (کاربر غیر سوپرادمین)
+ورود 09123334455 (سارا).
+انتظار: بدون dropdown «پیش‌نمایش نقش»؛ فقط نام/نقش ثابت.
+F5 — همان دفتر و نقش.
+اسکرین‌شات: 16-staff-no-role-switch.png
+۱۲ — سوپرادمین (فقط اگر می‌خواهید)
+ورود کیایی — dropdown پیش‌نمایش نقش هست؛ بنر فقط وقتی نقش UI ≠ نشست.
+تعویض دفتر واقعی فقط از املاک‌ها / ورود به دفتر + reload داده، نه از سوییچ نقش.
+اسکرین‌شات: 17-super-admin-preview.png
+API (برای ابزار خودکار / Postman)
+با کوکی نشست بعد از ورود مرورگر:
+
+عمل	متد	URL
+لیست
+GET
+https://amlakkiaei.ir/api/construction/lands
+ثبت
+POST
+همان + body JSON زمین
+ویرایش
+PATCH
+https://amlakkiaei.ir/api/construction/lands/{id}
+حذف
+DELETE
+https://amlakkiaei.ir/api/construction/lands/{id}
+معرفی
+POST
+https://amlakkiaei.ir/api/construction/intros
+ویرایش معرفی
+PATCH
+https://amlakkiaei.ir/api/construction/intros/{id}
+حذف معرفی
+DELETE
+https://amlakkiaei.ir/api/construction/intros/{id}
+فاز پایانی — حذف همهٔ دادهٔ فیک
+ترتیب:
+
+https://amlakkiaei.ir/construction با حساب کیایی (همان دفتر که v12-test را ساختید).
+تب معرفی سازنده → روی معرفی مربوط به زمین v12-test → حذف.
+تب زمین‌ها → کارت v12-test زمین مشارکت تست → حذف (معرفی‌های وابسته با cascade هم حذف می‌شوند اگر هنوز مانده).
+رفرش صفحه — هیچ مورد با v12-test در عنوان نماند.
+اگر مشتری/فایل جدا با v12-test ساختید → از /customers یا /properties حذف/آرشیو یا سطل زباله (/trash).
+اسکرین‌شات نهایی: 99-cleanup-empty.png

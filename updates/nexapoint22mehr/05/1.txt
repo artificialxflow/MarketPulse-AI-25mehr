@@ -1,0 +1,118 @@
+## ۱) قبل از مرورگر — روی VPS
+
+```bash
+cd /مسیر/پروژه/روی/سرور
+git pull
+npm ci          # یا npm install — طبق روال خودتان
+npm run build   # اگر build روی سرور می‌زنید
+npx prisma migrate deploy
+npm run db:backfill-products   # اختیاری؛ فقط اگر قبلاً کالا در BusinessProduct داشتید
+# ری‌استارت اپ (pm2 restart …)
+```
+
+Migration مورد انتظار: **`20261101120000_p4_commerce_m3`**. اگر `migrate deploy` خطا داد، قبل از UAT متوقف شوید.
+
+Smoke test (روی سرور یا لوکال با DB همان محیط):
+
+```bash
+npm run test:commerce-m3
+```
+
+---
+
+## ۲) در VS Code / Cursor — چه بنویسید؟
+
+**الف) اگر خودتان UAT می‌زنید (Agent لازم نیست)**  
+فقط `todo-v5.md` و [`updates/03/copilot-phase-03-commerce-practical.md`](updates/03/copilot-phase-03-commerce-practical.md) را باز کنید و چک‌لیست زیر را تیک بزنید.
+
+**ب) اگر می‌خواهید Agent با browser MCP تست کند (Agent mode):**
+
+```text
+UAT مرحله ۳ روی https://nexapoint.ir بعد از deploy من.
+
+طبق updates/03/copilot-phase-03-commerce-practical.md و todo-v5:
+- همه منوی بازرگانی (۵ آیتم) + تب‌های اصلی هر صفحه
+- داده فیک با پیشوند FAUX-M3- (و برای رگرسیون فاز ۲: FAUX-M2- در CRM/اشخاص)
+- بعد از هر create: F5 و چک لیست
+- Network: commerce-module, store-module, blog-module, catalog-module, products — بدون 4xx/5xx
+- اسکرین‌شات در updates/03/screenshots/M3/ (و M2 برای رگرسیون)
+- گزارش ماتریس PASS/FAIL
+
+فقط تست و گزارش؛ کد نزن مگر باگ blocker.
+```
+
+---
+
+## ۳) مرورگر — کجا بروید؟
+
+لاگین → **کسب‌وکار تست** را انتخاب کنید. DevTools → **Network** را باز بگذارید.
+
+| منو (بازرگانی) | URL تقریبی |
+|----------------|------------|
+| کالاها و خدمات | `https://nexapoint.ir/dashboard/products` |
+| فروش و درآمد | `https://nexapoint.ir/dashboard/sales` |
+| خرید و هزینه | `https://nexapoint.ir/dashboard/purchasing` |
+| مدیریت فروشگاه | `https://nexapoint.ir/dashboard/store-admin` |
+| مدیریت بلاگ | `https://nexapoint.ir/dashboard/blog-admin` |
+
+**رگرسیون فاز ۲ (همان session):**
+
+| منو (فروش) | URL |
+|------------|-----|
+| اشخاص | `/dashboard/people` |
+| CRM | `/dashboard/crm` |
+
+---
+
+## ۴) چه چیزهایی را بررسی کنید؟
+
+### Network (بعد از deploy)
+- `GET .../commerce-module` → **200** (اول بار لیست‌ها می‌توانند خالی باشند)
+- بعد از ذخیره در فروش/خرید → `PUT .../commerce-module` → **200**
+- فروشگاه → `GET/PUT .../store-module`
+- بلاگ → `GET/PUT .../blog-module`
+- کالا → `GET .../api/products/{businessId}/catalog`؛ create → `POST .../products`
+- دسته/لیست قیمت → `PUT .../catalog-module` (با تأخیر ~۱ ثانیه بعد از تغییر دسته)
+
+### سناریوهای FAUX-M3 (حداقل)
+
+**کالا** (`/dashboard/products`)  
+- کالا: نام `FAUX-M3-PRODUCT-2026-11-01`، کد `M3-P-001` → ذخیره → در لیست → **F5**  
+- دسته: `FAUX-M3-CAT-01` → F5
+
+**فروش** (`/dashboard/sales`)  
+- تب **فروش جدید**: یک مشتری + یک کالا → ثبت فاکتور → تب **لیست فاکتورهای فروش** → **F5**  
+- تب **درآمد**: عنوان `FAUX-M3-INCOME-2026-11-01`، مبلغ `1500000` → ثبت → **F5**  
+- تب **انواع درآمد**: `FAUX-M3-INCOMETYPE-01` → F5
+
+**خرید** (`/dashboard/purchasing`)  
+- **خرید جدید** → ثبت (شرح/مرجع با `FAUX-M3-PURCHASE-01`) → **فاکتورهای خرید** → F5  
+- **هزینه**: `FAUX-M3-EXPENSE-01`  
+- **ضایعات**: `FAUX-M3-WASTE-ITEM`
+
+**فروشگاه** (`/dashboard/store-admin`)  
+- محصول: `FAUX-M3-STORE-PRODUCT` → F5  
+- تب SEO → **ذخیره تنظیمات سئو**
+
+**بلاگ** (`/dashboard/blog-admin`)  
+- مقاله: `FAUX-M3-BLOG-POST-2026-11-01` → F5
+
+### رگرسیون FAUX-M2 (کوتاه)
+- `/dashboard/crm`: یک سرنخ یا بازدید با `FAUX-M2-...`  
+- `/dashboard/people`: لیست/یک CRUD سبک + F5
+
+### اسکرین‌شات
+- `updates/03/screenshots/M3/` — حداقل یک عکس per منوی بالا (بعد از F5)  
+- `updates/03/screenshots/M2/` — اگر فاز ۲ را دوباره زدید
+
+### Console
+- خطای قرمز یا `403`/`500` روی APIهای بالا = **FAIL** تا علت مشخص شود.
+
+---
+
+## ۵) بعد از UAT — در `todo-v5.md`
+
+- ردیف **مرحله ۳**: تیک **push + deploy** و **تست فرانت**  
+- **مرحله ۳** در «تیک مرحلهٔ کامل» → `[x]` (وقتی هر سه ستون سبز شد)
+
+اگر خواستید Agent همان UAT را در مرورگر برایتان اجرا کند، **Agent mode** + پرامپت بند **۲-ب** کافی است.
